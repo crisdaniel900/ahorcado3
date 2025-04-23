@@ -49,13 +49,11 @@
         }
         .mic-controls {
             display: flex;
-            flex-wrap: wrap;
             justify-content: center;
-            gap: 15px;
             margin: 20px 0;
         }
         .mic-button {
-            background-color: #e74c3c;
+            background-color: #3498db;
             color: white;
             border: none;
             padding: 15px 30px;
@@ -68,16 +66,9 @@
             justify-content: center;
         }
         .mic-button:hover {
-            background-color: #c0392b;
+            background-color: #2980b9;
         }
-        .mic-button.listening {
-            animation: pulse 1.5s infinite;
-            background-color: #27ae60;
-        }
-        .continuous-mic {
-            background-color: #3498db;
-        }
-        .continuous-mic.active {
+        .mic-button.active {
             background-color: #27ae60;
             animation: pulse 1.5s infinite;
         }
@@ -292,11 +283,8 @@
             <div class="status"></div>
             
             <div class="mic-controls">
-                <button class="mic-button" id="mic-once">
-                    <span class="mic-icon">🎤</span> Una vez
-                </button>
-                <button class="mic-button continuous-mic" id="mic-continuous">
-                    <span class="mic-icon">🎤</span> <span id="continuous-text">Activar micrófono continuo</span>
+                <button class="mic-button" id="mic-continuous">
+                    <span class="mic-icon">🎤</span> <span id="continuous-text">Activar micrófono</span>
                 </button>
             </div>
             <div>
@@ -326,7 +314,6 @@
             const usedLettersEl = document.getElementById('used-letters');
             const attemptsLeft = document.getElementById('attempts-left');
             const statusEl = document.querySelector('.status');
-            const micButtonOnce = document.getElementById('mic-once');
             const micButtonContinuous = document.getElementById('mic-continuous');
             const continuousText = document.getElementById('continuous-text');
             const messageEl = document.querySelector('.message');
@@ -342,12 +329,12 @@
             let attempts = 6;
             let gameOver = false;
             let recognition = null;
-            let continuousMode = false;
+            let microphoneActive = false;
             let lastProcessedLetter = '';
             let lastProcessedTime = 0;
             
             // Configurar reconocimiento de voz
-            function setupSpeechRecognition(continuous = false) {
+            function setupSpeechRecognition() {
                 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
                     // Si ya existe una instancia, detenerla
                     if (recognition) {
@@ -362,27 +349,22 @@
                     
                     // Configurar el reconocimiento
                     recognition.lang = 'es-ES'; // Idioma español
-                    recognition.continuous = continuous; // Continuo o no según el parámetro
+                    recognition.continuous = true; // Siempre en modo continuo
                     recognition.interimResults = false; // Solo resultados finales
                     recognition.maxAlternatives = 5; // Obtener varias alternativas
                     
                     // Eventos de reconocimiento
                     recognition.onstart = function() {
-                        if (continuous) {
-                            micButtonContinuous.classList.add('active');
-                            micIndicator.classList.add('active');
-                            micStatusText.textContent = 'Activo - escuchando continuamente';
-                        } else {
-                            micButtonOnce.classList.add('listening');
-                            micStatusText.textContent = 'Activo - una detección';
-                            micIndicator.classList.add('active');
-                        }
+                        micButtonContinuous.classList.add('active');
+                        micIndicator.classList.add('active');
+                        micStatusText.textContent = 'Activo - escuchando continuamente';
                         statusEl.textContent = 'Escuchando...';
+                        microphoneActive = true;
                     };
                     
                     recognition.onresult = function(event) {
-                        // Para el modo continuo, obtenemos el último resultado
-                        const resultIndex = continuous ? event.results.length - 1 : 0;
+                        // Obtenemos el último resultado
+                        const resultIndex = event.results.length - 1;
                         let letter = '';
                         let foundLetter = false;
                         
@@ -427,9 +409,9 @@
                         }
                         
                         if (foundLetter) {
-                            // En modo continuo, evitar procesar la misma letra repetidamente
+                            // Evitar procesar la misma letra repetidamente
                             const now = Date.now();
-                            if (continuous && (letter === lastProcessedLetter && now - lastProcessedTime < 3000)) {
+                            if (letter === lastProcessedLetter && now - lastProcessedTime < 3000) {
                                 return;
                             }
                             
@@ -439,50 +421,40 @@
                             statusEl.textContent = `¡Letra detectada: ${letter}!`;
                             processGuess(letter);
                         } else {
-                            statusEl.textContent = 'No se detectó ninguna letra. Intenta de nuevo.';
+                            statusEl.textContent = 'No se detectó ninguna letra. Sigue intentando.';
                         }
                     };
                     
                     recognition.onerror = function(event) {
-                        if (continuous) {
-                            // En modo continuo, reiniciar si hay un error
-                            if (!gameOver && continuousMode) {
-                                setTimeout(() => {
-                                    try {
-                                        setupSpeechRecognition(true);
-                                        recognition.start();
-                                    } catch (e) {}
-                                }, 1000);
-                            } else {
-                                resetMicrophoneStatus();
-                            }
+                        // Reiniciar si hay un error y el micrófono estaba activo
+                        if (!gameOver && microphoneActive) {
+                            setTimeout(() => {
+                                try {
+                                    setupSpeechRecognition();
+                                    recognition.start();
+                                } catch (e) {}
+                            }, 1000);
                         } else {
-                            micButtonOnce.classList.remove('listening');
                             resetMicrophoneStatus();
                         }
-                        statusEl.textContent = `Error: ${event.error}. ${continuous ? 'Reiniciando...' : 'Intenta de nuevo.'}`;
+                        statusEl.textContent = `Error: ${event.error}. ${microphoneActive ? 'Reiniciando...' : ''}`;
                     };
                     
                     recognition.onend = function() {
-                        if (continuous) {
-                            // En modo continuo, reiniciar automáticamente
-                            if (!gameOver && continuousMode) {
-                                try {
-                                    recognition.start();
-                                } catch (e) {
-                                    setTimeout(() => {
-                                        try {
-                                            recognition.start();
-                                        } catch (e) {}
-                                    }, 500);
-                                }
-                            } else {
-                                resetMicrophoneStatus();
-                                micButtonContinuous.classList.remove('active');
+                        // Reiniciar automáticamente si sigue activo
+                        if (!gameOver && microphoneActive) {
+                            try {
+                                recognition.start();
+                            } catch (e) {
+                                setTimeout(() => {
+                                    try {
+                                        recognition.start();
+                                    } catch (e) {}
+                                }, 500);
                             }
                         } else {
-                            micButtonOnce.classList.remove('listening');
                             resetMicrophoneStatus();
+                            micButtonContinuous.classList.remove('active');
                         }
                     };
                     
@@ -490,65 +462,41 @@
                 } else {
                     // El navegador no soporta reconocimiento de voz
                     statusEl.textContent = 'Tu navegador no soporta reconocimiento de voz.';
-                    micButtonOnce.disabled = true;
                     micButtonContinuous.disabled = true;
                     return false;
                 }
             }
             
             function resetMicrophoneStatus() {
+                microphoneActive = false;
                 micIndicator.classList.remove('active');
                 micStatusText.textContent = 'Inactivo';
             }
             
-            // Botón para reconocimiento puntual
-            micButtonOnce.addEventListener('click', function() {
-                if (!gameOver) {
-                    // Si estaba en modo continuo, desactivarlo
-                    if (continuousMode) {
-                        toggleContinuousMode();
-                    }
-                    
-                    if (!recognition || recognition.continuous) {
-                        setupSpeechRecognition(false);
-                    }
-                    
-                    try {
-                        recognition.start();
-                    } catch (e) {
-                        // Si ya está escuchando, reiniciar
-                        try {
-                            recognition.stop();
-                            setTimeout(() => recognition.start(), 200);
-                        } catch (e) {}
-                    }
-                }
-            });
+            // Botón para activar/desactivar micrófono
+            micButtonContinuous.addEventListener('click', toggleMicrophone);
             
-            // Botón para activar/desactivar modo continuo
-            micButtonContinuous.addEventListener('click', toggleContinuousMode);
-            
-            function toggleContinuousMode() {
-                continuousMode = !continuousMode;
+            function toggleMicrophone() {
+                microphoneActive = !microphoneActive;
                 
-                if (continuousMode) {
-                    // Activar modo continuo
-                    setupSpeechRecognition(true);
+                if (microphoneActive) {
+                    // Activar micrófono
+                    setupSpeechRecognition();
                     try {
                         recognition.start();
-                        continuousText.textContent = 'Desactivar micrófono continuo';
+                        continuousText.textContent = 'Desactivar micrófono';
                     } catch (e) {
-                        continuousMode = false;
-                        setupSpeechRecognition(false);
+                        microphoneActive = false;
+                        setupSpeechRecognition();
                     }
                 } else {
-                    // Desactivar modo continuo
+                    // Desactivar micrófono
                     try {
                         recognition.stop();
                     } catch (e) {}
                     resetMicrophoneStatus();
                     micButtonContinuous.classList.remove('active');
-                    continuousText.textContent = 'Activar micrófono continuo';
+                    continuousText.textContent = 'Activar micrófono';
                 }
             }
             
@@ -584,14 +532,14 @@
                 
                 // Configurar reconocimiento de voz si no está configurado
                 if (!recognition) {
-                    setupSpeechRecognition(false);
+                    setupSpeechRecognition();
                 }
                 
-                // Si estaba en modo continuo, reiniciar el reconocimiento
-                if (continuousMode) {
+                // Si el micrófono estaba activo, reiniciar el reconocimiento
+                if (microphoneActive) {
                     try {
                         recognition.stop();
-                        setupSpeechRecognition(true);
+                        setupSpeechRecognition();
                         setTimeout(() => recognition.start(), 200);
                     } catch (e) {}
                 }
@@ -648,13 +596,14 @@
             function endGame(won) {
                 gameOver = true;
                 
-                // Si estaba en modo continuo, detener el reconocimiento
-                if (continuousMode) {
+                // Si el micrófono estaba activo, detener el reconocimiento
+                if (microphoneActive) {
                     try {
                         recognition.stop();
                     } catch (e) {}
                     resetMicrophoneStatus();
                     micButtonContinuous.classList.remove('active');
+                    continuousText.textContent = 'Activar micrófono';
                 }
                 
                 if (won) {
@@ -679,12 +628,12 @@
             
             // Manejar la visibilidad de la página (para pausar el reconocimiento cuando la página está oculta)
             document.addEventListener('visibilitychange', function() {
-                if (document.hidden && continuousMode) {
+                if (document.hidden && microphoneActive) {
                     try {
                         recognition.stop();
                     } catch (e) {}
-                } else if (!document.hidden && continuousMode && !gameOver) {
-                    setupSpeechRecognition(true);
+                } else if (!document.hidden && microphoneActive && !gameOver) {
+                    setupSpeechRecognition();
                     try {
                         recognition.start();
                     } catch (e) {}
