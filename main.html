@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ahorcado con Reconocimiento de Voz</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .game-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .hangman {
+            width: 300px;
+            height: 300px;
+            border: 2px solid #333;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .word-display {
+            font-size: 32px;
+            letter-spacing: 10px;
+            margin: 20px 0;
+            min-height: 50px;
+        }
+        .used-letters {
+            margin: 20px 0;
+            font-size: 18px;
+        }
+        .mic-controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .mic-button {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .mic-button:hover {
+            background-color: #c0392b;
+        }
+        .mic-button.listening {
+            animation: pulse 1.5s infinite;
+            background-color: #27ae60;
+        }
+        .continuous-mic {
+            background-color: #3498db;
+        }
+        .continuous-mic.active {
+            background-color: #27ae60;
+            animation: pulse 1.5s infinite;
+        }
+        .mic-icon {
+            margin-right: 10px;
+            font-size: 20px;
+        }
+        .status {
+            font-size: 20px;
+            margin: 15px 0;
+            min-height: 30px;
+            color: #2980b9;
+        }
+        .attempts {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        .controls {
+            margin-top: 20px;
+        }
+        .new-game {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .new-game:hover {
+            background-color: #2980b9;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .message {
+            font-size: 18px;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .settings {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .settings-title {
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        .settings label {
+            margin-right: 15px;
+        }
+        .gallows {
+            position: absolute;
+        }
+        .head {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 5px solid #333;
+            position: absolute;
+            top: 50px;
+            left: 125px;
+            display: none;
+        }
+        .body {
+            width: 5px;
+            height: 100px;
+            background-color: #333;
+            position: absolute;
+            top: 100px;
+            left: 150px;
+            display: none;
+        }
+        .left-arm {
+            width: 60px;
+            height: 5px;
+            background-color: #333;
+            position: absolute;
+            top: 120px;
+            left: 90px;
+            transform: rotate(30deg);
+            display: none;
+        }
+        .right-arm {
+            width: 60px;
+            height: 5px;
+            background-color: #333;
+            position: absolute;
+            top: 120px;
+            left: 150px;
+            transform: rotate(-30deg);
+            display: none;
+        }
+        .left-leg {
+            width: 60px;
+            height: 5px;
+            background-color: #333;
+            position: absolute;
+            top: 190px;
+            left: 95px;
+            transform: rotate(30deg);
+            display: none;
+        }
+        .right-leg {
+            width: 60px;
+            height: 5px;
+            background-color: #333;
+            position: absolute;
+            top: 190px;
+            left: 145px;
+            transform: rotate(-30deg);
+            display: none;
+        }
+        .gallows-base {
+            width: 150px;
+            height: 5px;
+            background-color: #333;
+            position: absolute;
+            bottom: 20px;
+            left: 75px;
+        }
+        .gallows-post {
+            width: 5px;
+            height: 250px;
+            background-color: #333;
+            position: absolute;
+            bottom: 20px;
+            left: 75px;
+        }
+        .gallows-beam {
+            width: 100px;
+            height: 5px;
+            background-color: #333;
+            position: absolute;
+            top: 25px;
+            left: 75px;
+        }
+        .gallows-rope {
+            width: 5px;
+            height: 25px;
+            background-color: #333;
+            position: absolute;
+            top: 25px;
+            left: 150px;
+        }
+        .mic-status-indicator {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background-color: #ccc;
+            display: inline-block;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        .mic-status-indicator.active {
+            background-color: #27ae60;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Ahorcado con Reconocimiento de Voz</h1>
+        
+        <div class="settings">
+            <div class="settings-title">Configuración</div>
+            <label>
+                <input type="radio" name="difficulty" value="easy" checked> Fácil
+            </label>
+            <label>
+                <input type="radio" name="difficulty" value="medium"> Medio
+            </label>
+            <label>
+                <input type="radio" name="difficulty" value="hard"> Difícil
+            </label>
+        </div>
+
+        <div class="game-area">
+            <div class="hangman">
+                <div class="gallows-base"></div>
+                <div class="gallows-post"></div>
+                <div class="gallows-beam"></div>
+                <div class="gallows-rope"></div>
+                <div class="head"></div>
+                <div class="body"></div>
+                <div class="left-arm"></div>
+                <div class="right-arm"></div>
+                <div class="left-leg"></div>
+                <div class="right-leg"></div>
+            </div>
+            
+            <div class="word-display"></div>
+            
+            <div class="attempts">Intentos restantes: <span id="attempts-left">6</span></div>
+            
+            <div class="used-letters">Letras usadas: <span id="used-letters"></span></div>
+            
+            <div class="status"></div>
+            
+            <div class="mic-controls">
+                <button class="mic-button" id="mic-once">
+                    <span class="mic-icon">🎤</span> Una vez
+                </button>
+                <button class="mic-button continuous-mic" id="mic-continuous">
+                    <span class="mic-icon">🎤</span> <span id="continuous-text">Activar micrófono continuo</span>
+                </button>
+            </div>
+            <div>
+                Estado del micrófono: <span class="mic-status-indicator" id="mic-indicator"></span>
+                <span id="mic-status-text">Inactivo</span>
+            </div>
+        </div>
+        
+        <div class="message" style="display: none;"></div>
+        
+        <div class="controls">
+            <button class="new-game">Nueva Partida</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Lista de palabras por dificultad
+            const wordsByDifficulty = {
+                easy: ['casa', 'perro', 'gato', 'sol', 'luna', 'mar', 'cielo', 'flor', 'mesa', 'silla', 'amor', 'paz'],
+                medium: ['elefante', 'dinosaurio', 'teclado', 'guitarra', 'ventana', 'biblioteca', 'calendario', 'chocolate', 'universidad'],
+                hard: ['murciélago', 'espectáculo', 'paradigma', 'arqueología', 'fotosíntesis', 'conocimiento', 'extraordinario', 'circunferencia']
+            };
+            
+            // Elementos del DOM
+            const wordDisplay = document.querySelector('.word-display');
+            const usedLettersEl = document.getElementById('used-letters');
+            const attemptsLeft = document.getElementById('attempts-left');
+            const statusEl = document.querySelector('.status');
+            const micButtonOnce = document.getElementById('mic-once');
+            const micButtonContinuous = document.getElementById('mic-continuous');
+            const continuousText = document.getElementById('continuous-text');
+            const messageEl = document.querySelector('.message');
+            const newGameButton = document.querySelector('.new-game');
+            const bodyParts = ['head', 'body', 'left-arm', 'right-arm', 'left-leg', 'right-leg'];
+            const micIndicator = document.getElementById('mic-indicator');
+            const micStatusText = document.getElementById('mic-status-text');
+            
+            // Variables del juego
+            let currentWord = '';
+            let guessedWord = [];
+            let usedLetters = new Set();
+            let attempts = 6;
+            let gameOver = false;
+            let recognition = null;
+            let continuousMode = false;
+            let lastProcessedLetter = '';
+            let lastProcessedTime = 0;
+            
+            // Configurar reconocimiento de voz
+            function setupSpeechRecognition(continuous = false) {
+                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                    // Si ya existe una instancia, detenerla
+                    if (recognition) {
+                        try {
+                            recognition.stop();
+                        } catch (e) {}
+                    }
+                    
+                    // Usar el objeto de reconocimiento correcto según el navegador
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    recognition = new SpeechRecognition();
+                    
+                    // Configurar el reconocimiento
+                    recognition.lang = 'es-ES'; // Idioma español
+                    recognition.continuous = continuous; // Continuo o no según el parámetro
+                    recognition.interimResults = false; // Solo resultados finales
+                    recognition.maxAlternatives = 5; // Obtener varias alternativas
+                    
+                    // Eventos de reconocimiento
+                    recognition.onstart = function() {
+                        if (continuous) {
+                            micButtonContinuous.classList.add('active');
+                            micIndicator.classList.add('active');
+                            micStatusText.textContent = 'Activo - escuchando continuamente';
+                        } else {
+                            micButtonOnce.classList.add('listening');
+                            micStatusText.textContent = 'Activo - una detección';
+                            micIndicator.classList.add('active');
+                        }
+                        statusEl.textContent = 'Escuchando...';
+                    };
+                    
+                    recognition.onresult = function(event) {
+                        // Para el modo continuo, obtenemos el último resultado
+                        const resultIndex = continuous ? event.results.length - 1 : 0;
+                        let letter = '';
+                        let foundLetter = false;
+                        
+                        // Buscar en todas las alternativas una letra válida
+                        for (let i = 0; i < event.results[resultIndex].length; i++) {
+                            const transcript = event.results[resultIndex][i].transcript.trim().toLowerCase();
+                            
+                            // Verificar si es una letra individual
+                            if (/^[a-záéíóúñ]$/i.test(transcript)) {
+                                letter = transcript;
+                                foundLetter = true;
+                                break;
+                            }
+                            
+                            // Verificar si es una palabra que empieza con "la letra" o similar
+                            if (transcript.includes('letra')) {
+                                const match = transcript.match(/letra\s+([a-záéíóúñ])/i);
+                                if (match && match[1]) {
+                                    letter = match[1].toLowerCase();
+                                    foundLetter = true;
+                                    break;
+                                }
+                            }
+                            
+                            // Si la transcripción es corta, buscar la primera letra
+                            if (transcript.length <= 3) {
+                                const match = transcript.match(/([a-záéíóúñ])/i);
+                                if (match) {
+                                    letter = match[0].toLowerCase();
+                                    foundLetter = true;
+                                    break;
+                                }
+                            }
+                            
+                            // Busca la primera letra mencionada en cualquier frase
+                            const letterMatch = transcript.match(/\b[a-záéíóúñ]\b/i);
+                            if (letterMatch) {
+                                letter = letterMatch[0].toLowerCase();
+                                foundLetter = true;
+                                break;
+                            }
+                        }
+                        
+                        if (foundLetter) {
+                            // En modo continuo, evitar procesar la misma letra repetidamente
+                            const now = Date.now();
+                            if (continuous && (letter === lastProcessedLetter && now - lastProcessedTime < 3000)) {
+                                return;
+                            }
+                            
+                            lastProcessedLetter = letter;
+                            lastProcessedTime = now;
+                            
+                            statusEl.textContent = `¡Letra detectada: ${letter}!`;
+                            processGuess(letter);
+                        } else {
+                            statusEl.textContent = 'No se detectó ninguna letra. Intenta de nuevo.';
+                        }
+                    };
+                    
+                    recognition.onerror = function(event) {
+                        if (continuous) {
+                            // En modo continuo, reiniciar si hay un error
+                            if (!gameOver && continuousMode) {
+                                setTimeout(() => {
+                                    try {
+                                        setupSpeechRecognition(true);
+                                        recognition.start();
+                                    } catch (e) {}
+                                }, 1000);
+                            } else {
+                                resetMicrophoneStatus();
+                            }
+                        } else {
+                            micButtonOnce.classList.remove('listening');
+                            resetMicrophoneStatus();
+                        }
+                        statusEl.textContent = `Error: ${event.error}. ${continuous ? 'Reiniciando...' : 'Intenta de nuevo.'}`;
+                    };
+                    
+                    recognition.onend = function() {
+                        if (continuous) {
+                            // En modo continuo, reiniciar automáticamente
+                            if (!gameOver && continuousMode) {
+                                try {
+                                    recognition.start();
+                                } catch (e) {
+                                    setTimeout(() => {
+                                        try {
+                                            recognition.start();
+                                        } catch (e) {}
+                                    }, 500);
+                                }
+                            } else {
+                                resetMicrophoneStatus();
+                                micButtonContinuous.classList.remove('active');
+                            }
+                        } else {
+                            micButtonOnce.classList.remove('listening');
+                            resetMicrophoneStatus();
+                        }
+                    };
+                    
+                    return true;
+                } else {
+                    // El navegador no soporta reconocimiento de voz
+                    statusEl.textContent = 'Tu navegador no soporta reconocimiento de voz.';
+                    micButtonOnce.disabled = true;
+                    micButtonContinuous.disabled = true;
+                    return false;
+                }
+            }
+            
+            function resetMicrophoneStatus() {
+                micIndicator.classList.remove('active');
+                micStatusText.textContent = 'Inactivo';
+            }
+            
+            // Botón para reconocimiento puntual
+            micButtonOnce.addEventListener('click', function() {
+                if (!gameOver) {
+                    // Si estaba en modo continuo, desactivarlo
+                    if (continuousMode) {
+                        toggleContinuousMode();
+                    }
+                    
+                    if (!recognition || recognition.continuous) {
+                        setupSpeechRecognition(false);
+                    }
+                    
+                    try {
+                        recognition.start();
+                    } catch (e) {
+                        // Si ya está escuchando, reiniciar
+                        try {
+                            recognition.stop();
+                            setTimeout(() => recognition.start(), 200);
+                        } catch (e) {}
+                    }
+                }
+            });
+            
+            // Botón para activar/desactivar modo continuo
+            micButtonContinuous.addEventListener('click', toggleContinuousMode);
+            
+            function toggleContinuousMode() {
+                continuousMode = !continuousMode;
+                
+                if (continuousMode) {
+                    // Activar modo continuo
+                    setupSpeechRecognition(true);
+                    try {
+                        recognition.start();
+                        continuousText.textContent = 'Desactivar micrófono continuo';
+                    } catch (e) {
+                        continuousMode = false;
+                        setupSpeechRecognition(false);
+                    }
+                } else {
+                    // Desactivar modo continuo
+                    try {
+                        recognition.stop();
+                    } catch (e) {}
+                    resetMicrophoneStatus();
+                    micButtonContinuous.classList.remove('active');
+                    continuousText.textContent = 'Activar micrófono continuo';
+                }
+            }
+            
+            // Obtener una palabra aleatoria según la dificultad
+            function getRandomWord() {
+                const difficulty = document.querySelector('input[name="difficulty"]:checked').value;
+                const words = wordsByDifficulty[difficulty];
+                return words[Math.floor(Math.random() * words.length)];
+            }
+            
+            // Iniciar una nueva partida
+            function startNewGame() {
+                currentWord = getRandomWord();
+                guessedWord = Array(currentWord.length).fill('_');
+                usedLetters.clear();
+                attempts = 6;
+                gameOver = false;
+                lastProcessedLetter = '';
+                lastProcessedTime = 0;
+                
+                // Resetear la interfaz
+                wordDisplay.textContent = guessedWord.join(' ');
+                usedLettersEl.textContent = '';
+                attemptsLeft.textContent = attempts;
+                statusEl.textContent = 'Juego iniciado. ¡Buena suerte!';
+                messageEl.style.display = 'none';
+                messageEl.textContent = '';
+                
+                // Resetear el muñeco
+                bodyParts.forEach(part => {
+                    document.querySelector(`.${part}`).style.display = 'none';
+                });
+                
+                // Configurar reconocimiento de voz si no está configurado
+                if (!recognition) {
+                    setupSpeechRecognition(false);
+                }
+                
+                // Si estaba en modo continuo, reiniciar el reconocimiento
+                if (continuousMode) {
+                    try {
+                        recognition.stop();
+                        setupSpeechRecognition(true);
+                        setTimeout(() => recognition.start(), 200);
+                    } catch (e) {}
+                }
+            }
+            
+            // Procesar la letra adivinada
+            function processGuess(letter) {
+                if (gameOver) return;
+                
+                // Si la letra ya fue usada, informar al usuario
+                if (usedLetters.has(letter)) {
+                    statusEl.textContent = `Ya has usado la letra "${letter}". Intenta con otra.`;
+                    return;
+                }
+                
+                // Agregar la letra a las usadas
+                usedLetters.add(letter);
+                usedLettersEl.textContent = Array.from(usedLetters).join(', ');
+                
+                // Verificar si la letra está en la palabra
+                if (currentWord.includes(letter)) {
+                    // Actualizar la palabra adivinada
+                    for (let i = 0; i < currentWord.length; i++) {
+                        if (currentWord[i] === letter) {
+                            guessedWord[i] = letter;
+                        }
+                    }
+                    
+                    wordDisplay.textContent = guessedWord.join(' ');
+                    
+                    // Verificar si el jugador ha ganado
+                    if (!guessedWord.includes('_')) {
+                        endGame(true);
+                    }
+                } else {
+                    // Letra incorrecta
+                    attempts--;
+                    attemptsLeft.textContent = attempts;
+                    
+                    // Mostrar parte del cuerpo
+                    const partIndex = 6 - attempts - 1;
+                    if (partIndex >= 0 && partIndex < bodyParts.length) {
+                        document.querySelector(`.${bodyParts[partIndex]}`).style.display = 'block';
+                    }
+                    
+                    // Verificar si el jugador ha perdido
+                    if (attempts === 0) {
+                        endGame(false);
+                    }
+                }
+            }
+            
+            // Finalizar el juego
+            function endGame(won) {
+                gameOver = true;
+                
+                // Si estaba en modo continuo, detener el reconocimiento
+                if (continuousMode) {
+                    try {
+                        recognition.stop();
+                    } catch (e) {}
+                    resetMicrophoneStatus();
+                    micButtonContinuous.classList.remove('active');
+                }
+                
+                if (won) {
+                    messageEl.textContent = '¡Felicidades! Has ganado el juego.';
+                    messageEl.className = 'message success';
+                } else {
+                    messageEl.textContent = `¡Has perdido! La palabra era: ${currentWord}`;
+                    messageEl.className = 'message error';
+                }
+                
+                messageEl.style.display = 'block';
+                statusEl.textContent = won ? '¡Victoria!' : '¡Perdiste!';
+            }
+            
+            // Botón de nueva partida
+            newGameButton.addEventListener('click', startNewGame);
+            
+            // Selección de dificultad
+            document.querySelectorAll('input[name="difficulty"]').forEach(radio => {
+                radio.addEventListener('change', startNewGame);
+            });
+            
+            // Manejar la visibilidad de la página (para pausar el reconocimiento cuando la página está oculta)
+            document.addEventListener('visibilitychange', function() {
+                if (document.hidden && continuousMode) {
+                    try {
+                        recognition.stop();
+                    } catch (e) {}
+                } else if (!document.hidden && continuousMode && !gameOver) {
+                    setupSpeechRecognition(true);
+                    try {
+                        recognition.start();
+                    } catch (e) {}
+                }
+            });
+            
+            // Iniciar el juego cuando carga la página
+            startNewGame();
+        });
+    </script>
+</body>
+</html>
